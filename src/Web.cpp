@@ -6,9 +6,9 @@
 #endif
 #include <Geode/loader/Mod.hpp>
 #include <asp/iter.hpp>
-#include "external/ServerAPIEvents.hpp"
 
 using namespace arc;
+namespace gd { using string = std::string; }
 
 namespace argon::web {
 // TODO: reverse engineer the "encryption" and replace this all with geode base64
@@ -28,63 +28,8 @@ static std::string base64EncodeEnc(const gd::string& data, gd::string key) {
     return ret;
 }
 
-template <int GDVer, size_t Off, size_t Alt>
-struct Offset {
-    static constexpr size_t value = Off;
-    static constexpr size_t alt = Alt;
-    static constexpr bool valid = (GEODE_COMP_GD_VERSION == GDVer);
-
-    const char* addr(bool alt = false) const {
-        return (const char*)(base::get() + (alt ? this->alt : this->value));
-    }
-};
-
-// The addresses are pointing to "https://www.boomlings.com/database/getGJLevels21.php"
-// in the main game executable
-static constexpr
-    GEODE_WINDOWS  (Offset<22081, 0x558b70, 0x0>)
-    GEODE_ARM_MAC  (Offset<22081, 0x77d709, 0x0>)
-    GEODE_INTEL_MAC(Offset<22081, 0x868df0, 0x0>)
-    GEODE_ANDROID64(Offset<22081, 0xeccf90, 0x0>)
-    GEODE_ANDROID32(Offset<22081, 0x96c0db, 0x0>)
-    GEODE_IOS      (Offset<22081, 0x6b8cc2, 0x0>)
-g_urlOffset;
-
-static_assert(g_urlOffset.valid, "Unsupported GD version");
-
 std::string getBaseServerUrl() {
-    if (Loader::get()->isModLoaded("km7dev.server_api")) {
-        auto url = ServerAPIEvents::getCurrentServer().url;
-        if (!url.empty() && url != "NONE_REGISTERED") {
-            while (url.ends_with('/')) {
-                url.pop_back();
-            }
-
-            log::info("Using GDPS url: {}", url);
-            return url;
-        }
-    }
-
-    // This was taken from the impostor mod :) and altered
-
-    bool isAmazonStore = false
-        GEODE_ANDROID(|| !((GJMoreGamesLayer* volatile)nullptr)->getMoreGamesList()->count() );
-
-    std::string ret = g_urlOffset.addr(isAmazonStore);
-
-    // 34 chars: https://www.boomlings.com/database
-    if(ret.size() > 34) ret = ret.substr(0, 34);
-
-    while (ret.ends_with('/')) {
-        ret.pop_back();
-    }
-
-    if (!ret.starts_with("http")) {
-        log::error("(Argon) the base server URL does not appear to be valid: '{}'", ret);
-        log::error("(Argon) the offset may be invalid, we used base + {:x} (alt: {})", isAmazonStore ? g_urlOffset.alt : g_urlOffset.value, isAmazonStore);
-    }
-
-    return ret;
+    return "https://www.boomlings.com/database";
 }
 
 static const char* platformString() {
